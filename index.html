@@ -2,10 +2,64 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>すなねこ</title>
+  <title>Webカメラ録画</title>
 </head>
 <body>
-  <h1>すなねこ</h1>
-  <p>自己紹介サイト作成中</p>
+  <h1>Webカメラ録画</h1>
+
+  <video id="webcam" autoplay playsinline width="640" height="480"></video>
+  <br>
+  <button id="startBtn">録画開始</button>
+  <button id="stopBtn" disabled>録画停止</button>
+  <a id="downloadLink" style="display:none">動画を保存</a>
+
+  <script>
+    const video = document.getElementById('webcam');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const downloadLink = document.getElementById('downloadLink');
+
+    let mediaRecorder;
+    let recordedChunks = [];
+
+    // カメラ映像取得
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      .then(stream => {
+        video.srcObject = stream;
+
+        // MediaRecorder をセットアップ
+        mediaRecorder = new MediaRecorder(stream);
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) recordedChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(recordedChunks, { type: "video/webm" });
+          recordedChunks = [];
+          const url = URL.createObjectURL(blob);
+          downloadLink.href = url;
+          downloadLink.download = "recorded_video.webm";
+          downloadLink.style.display = "inline";
+          downloadLink.textContent = "動画を保存";
+        };
+      })
+      .catch(err => console.error("カメラを開けません: ", err));
+
+    // 録画開始
+    startBtn.addEventListener('click', () => {
+      mediaRecorder.start();
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      downloadLink.style.display = "none";
+    });
+
+    // 録画停止
+    stopBtn.addEventListener('click', () => {
+      mediaRecorder.stop();
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    });
+  </script>
 </body>
 </html>
