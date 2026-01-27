@@ -2,11 +2,10 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>カメラアプリ風Webカメラ</title>
+<title>Webカメラ</title>
 <style>
   html, body {
-    margin:0;
-    padding:0;
+    margin:0; padding:0;
     height:100%;
     overflow:hidden;
     font-family:sans-serif;
@@ -18,7 +17,7 @@
     width:100%;
     height:100%;
     object-fit:cover;
-    position: absolute;
+    position:absolute;
     top:0; left:0;
     z-index:0;
   }
@@ -28,25 +27,25 @@
     width:100%;
     display:flex;
     justify-content:center;
-    gap:20px;
+    gap:40px;
     z-index:1;
     pointer-events:auto;
   }
   button {
-    width:70px;
-    height:70px;
+    width:90px;
+    height:90px;
     border-radius:50%;
     border:none;
     background:white;
-    font-size:24px;
+    font-size:32px;
     display:flex;
     align-items:center;
     justify-content:center;
-    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    box-shadow: 0 0 15px rgba(0,0,0,0.5);
     cursor:pointer;
   }
   button:active {
-    transform: scale(0.9);
+    transform: scale(0.95);
   }
   #recordBtn.recording {
     background:red;
@@ -100,33 +99,39 @@ async function getCameras() {
   devices = allDevices.filter(d => d.kind === 'videoinput');
 }
 
-// カメラ起動
+// カメラ起動（最初は背面カメラ）
 async function startCamera(deviceId = null) {
   if (stream) stream.getTracks().forEach(track => track.stop());
   const constraints = { 
-    video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "user" }, 
+    video: deviceId 
+      ? { deviceId: { exact: deviceId } } 
+      : { facingMode: { exact: "environment" } }, 
     audio: true 
   };
-  stream = await navigator.mediaDevices.getUserMedia(constraints);
-  video.srcObject = stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = stream;
 
-  mediaRecorder = new MediaRecorder(stream);
-  mediaRecorder.ondataavailable = e => { if(e.data.size>0) recordedChunks.push(e.data); }
-  mediaRecorder.onstop = () => {
-    const blob = new Blob(recordedChunks, { type:"video/webm" });
-    recordedChunks = [];
-    const url = URL.createObjectURL(blob);
-    downloadLink.href = url;
-    downloadLink.download = "video.webm";
-    downloadLink.style.display = "inline";
-    downloadLink.textContent = "動画保存";
-  };
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => { if(e.data.size>0) recordedChunks.push(e.data); }
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recordedChunks, { type:"video/webm" });
+      recordedChunks = [];
+      const url = URL.createObjectURL(blob);
+      downloadLink.href = url;
+      downloadLink.download = "video.webm";
+      downloadLink.style.display = "inline";
+      downloadLink.textContent = "動画保存";
+    };
+  } catch(err) {
+    console.error("カメラを開けません: ", err);
+  }
 }
 
 // 初期化
 getCameras().then(() => startCamera());
 
-// 写真撮影
+// 写真撮影（録画中でも可能）
 photoBtn.addEventListener('click', () => {
   canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
   const dataUrl = canvas.toDataURL('image/png');
