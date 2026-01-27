@@ -4,25 +4,80 @@
 <meta charset="UTF-8">
 <title>カメラアプリ風Webカメラ</title>
 <style>
-  body { display:flex; flex-direction:column; align-items:center; font-family:sans-serif; }
-  video { width: 100%; max-width: 480px; border-radius: 10px; }
+  html, body {
+    margin:0;
+    padding:0;
+    height:100%;
+    overflow:hidden;
+    font-family:sans-serif;
+    background:black;
+    display:flex;
+    flex-direction:column;
+  }
+  #video {
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    position: absolute;
+    top:0; left:0;
+    z-index:0;
+  }
+  .controls {
+    position:absolute;
+    bottom:20px;
+    width:100%;
+    display:flex;
+    justify-content:center;
+    gap:20px;
+    z-index:1;
+    pointer-events:auto;
+  }
+  button {
+    width:70px;
+    height:70px;
+    border-radius:50%;
+    border:none;
+    background:white;
+    font-size:24px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    cursor:pointer;
+  }
+  button:active {
+    transform: scale(0.9);
+  }
+  #recordBtn.recording {
+    background:red;
+  }
+  #downloadLink {
+    position:absolute;
+    top:20px;
+    left:50%;
+    transform:translateX(-50%);
+    color:white;
+    background:rgba(0,0,0,0.5);
+    padding:10px 20px;
+    border-radius:10px;
+    text-decoration:none;
+    z-index:2;
+  }
   canvas { display:none; }
-  .controls { margin-top: 10px; display:flex; gap:10px; }
-  button { padding:10px 20px; border-radius:5px; font-size:16px; }
 </style>
 </head>
 <body>
 
-<h1>Webカメラアプリ</h1>
 <video id="video" autoplay playsinline></video>
 <canvas id="canvas" width="480" height="360"></canvas>
 
 <div class="controls">
-  <button id="photoBtn">📸 写真</button>
-  <button id="recordBtn">⏺️ 録画</button>
-  <button id="switchBtn">🔄 カメラ切替</button>
+  <button id="photoBtn">📸</button>
+  <button id="recordBtn">⏺️</button>
+  <button id="switchBtn">🔄</button>
 </div>
-<a id="downloadLink" style="display:none">保存</a>
+
+<a id="downloadLink" style="display:none"></a>
 
 <script>
 let video = document.getElementById('video');
@@ -44,13 +99,17 @@ async function getCameras() {
   const allDevices = await navigator.mediaDevices.enumerateDevices();
   devices = allDevices.filter(d => d.kind === 'videoinput');
 }
-  
+
 // カメラ起動
 async function startCamera(deviceId = null) {
   if (stream) stream.getTracks().forEach(track => track.stop());
-  const constraints = { video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "user" }, audio: true };
+  const constraints = { 
+    video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "user" }, 
+    audio: true 
+  };
   stream = await navigator.mediaDevices.getUserMedia(constraints);
   video.srcObject = stream;
+
   mediaRecorder = new MediaRecorder(stream);
   mediaRecorder.ondataavailable = e => { if(e.data.size>0) recordedChunks.push(e.data); }
   mediaRecorder.onstop = () => {
@@ -82,12 +141,12 @@ recordBtn.addEventListener('click', () => {
   if(!isRecording) {
     recordedChunks = [];
     mediaRecorder.start();
-    recordBtn.textContent = '⏹️ 停止';
+    recordBtn.classList.add('recording');
     isRecording = true;
     downloadLink.style.display = 'none';
   } else {
     mediaRecorder.stop();
-    recordBtn.textContent = '⏺️ 録画';
+    recordBtn.classList.remove('recording');
     isRecording = false;
   }
 });
