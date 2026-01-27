@@ -1,65 +1,104 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>Webカメラ録画</title>
+<meta charset="UTF-8">
+<title>カメラアプリ風Webカメラ</title>
+<style>
+  body { display:flex; flex-direction:column; align-items:center; font-family:sans-serif; }
+  video { width: 100%; max-width: 480px; border-radius: 10px; }
+  canvas { display:none; }
+  .controls { margin-top: 10px; display:flex; gap:10px; }
+  button { padding:10px 20px; border-radius:5px; font-size:16px; }
+</style>
 </head>
 <body>
-  <h1>Webカメラ録画</h1>
 
-  <video id="webcam" autoplay playsinline width="640" height="480"></video>
-  <br>
-  <button id="startBtn">録画開始</button>
-  <button id="stopBtn" disabled>録画停止</button>
-  <a id="downloadLink" style="display:none">動画を保存</a>
+<h1>Webカメラアプリ</h1>
+<video id="video" autoplay playsinline></video>
+<canvas id="canvas" width="480" height="360"></canvas>
 
-  <script>
-    const video = document.getElementById('webcam');
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const downloadLink = document.getElementById('downloadLink');
+<div class="controls">
+  <button id="photoBtn">📸 写真</button>
+  <button id="recordBtn">⏺️ 録画</button>
+  <button id="switchBtn">🔄 カメラ切替</button>
+</div>
+<a id="downloadLink" style="display:none">保存</a>
 
-    let mediaRecorder;
-    let recordedChunks = [];
+<script>
+let video = document.getElementById('video');
+let canvas = document.getElementById('canvas');
+let photoBtn = document.getElementById('photoBtn');
+let recordBtn = document.getElementById('recordBtn');
+let switchBtn = document.getElementById('switchBtn');
+let downloadLink = document.getElementById('downloadLink');
 
-    // カメラ映像取得
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      .then(stream => {
-        video.srcObject = stream;
+let stream;
+let mediaRecorder;
+let recordedChunks = [];
+let devices = [];
+let currentCameraIndex = 0;
+let isRecording = false;
 
-        // MediaRecorder をセットアップ
-        mediaRecorder = new MediaRecorder(stream);
+// カメラ一覧取得
+async function getCameras() {
+  const allDevices = await navigator.mediaDevices.enumerateDevices();
+  devices = allDevices.filter(d => d.kind === 'videoinput');
+}
+  
+// カメラ起動
+async function startCamera(deviceId = null) {
+  if (stream) stream.getTracks().forEach(track => track.stop());
+  const constraints = { video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "user" }, audio: true };
+  stream = await navigator.mediaDevices.getUserMedia(constraints);
+  video.srcObject = stream;
+  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder.ondataavailable = e => { if(e.data.size>0) recordedChunks.push(e.data); }
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type:"video/webm" });
+    recordedChunks = [];
+    const url = URL.createObjectURL(blob);
+    downloadLink.href = url;
+    downloadLink.download = "video.webm";
+    downloadLink.style.display = "inline";
+    downloadLink.textContent = "動画保存";
+  };
+}
 
-        mediaRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) recordedChunks.push(e.data);
-        };
+// 初期化
+getCameras().then(() => startCamera());
 
-        mediaRecorder.onstop = () => {
-          const blob = new Blob(recordedChunks, { type: "video/webm" });
-          recordedChunks = [];
-          const url = URL.createObjectURL(blob);
-          downloadLink.href = url;
-          downloadLink.download = "recorded_video.webm";
-          downloadLink.style.display = "inline";
-          downloadLink.textContent = "動画を保存";
-        };
-      })
-      .catch(err => console.error("カメラを開けません: ", err));
+// 写真撮影
+photoBtn.addEventListener('click', () => {
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+  const dataUrl = canvas.toDataURL('image/png');
+  downloadLink.href = dataUrl;
+  downloadLink.download = 'photo.png';
+  downloadLink.style.display = 'inline';
+  downloadLink.textContent = '写真保存';
+});
 
-    // 録画開始
-    startBtn.addEventListener('click', () => {
-      mediaRecorder.start();
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
-      downloadLink.style.display = "none";
-    });
+// 録画開始/停止
+recordBtn.addEventListener('click', () => {
+  if(!isRecording) {
+    recordedChunks = [];
+    mediaRecorder.start();
+    recordBtn.textContent = '⏹️ 停止';
+    isRecording = true;
+    downloadLink.style.display = 'none';
+  } else {
+    mediaRecorder.stop();
+    recordBtn.textContent = '⏺️ 録画';
+    isRecording = false;
+  }
+});
 
-    // 録画停止
-    stopBtn.addEventListener('click', () => {
-      mediaRecorder.stop();
-      startBtn.disabled = false;
-      stopBtn.disabled = true;
-    });
-  </script>
+// カメラ切替
+switchBtn.addEventListener('click', () => {
+  if(devices.length <= 1) return;
+  currentCameraIndex = (currentCameraIndex + 1) % devices.length;
+  startCamera(devices[currentCameraIndex].deviceId);
+});
+</script>
+
 </body>
 </html>
